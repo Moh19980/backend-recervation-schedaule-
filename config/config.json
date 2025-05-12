@@ -1,0 +1,23 @@
+{
+  "development": {
+    "username": "root",
+    "password": "12345679",
+    "database": "university_schedule",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  },
+  "test": {
+    "username": "root",
+    "password": "12345679",
+    "database": "university_schedule_test",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  },
+  "production": {
+    "username": "root",
+    "password": "12345679",
+    "database": "university_schedule_prod",
+    "host": "127.0.0.1",
+    "dialect": "mysql"
+  }
+}

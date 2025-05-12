@@ -20,6 +20,6 @@ app.use('/api/lectures',  lecturesRoutes);
 (async () => {
   await sequelize.sync();        // { force:true } if you want fresh every time
   app.listen(process.env.PORT, () =>
-    console.log(`🚀 API ready on http://localhost:${process.env.PORT}`)
+    console.log(`🚀 API ready on http://localhost:${process.env.PORT} Enjoy!`)
   );
 })();

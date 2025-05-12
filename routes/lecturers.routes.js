@@ -42,6 +42,27 @@ router.post('/', async (req, res) => {
   }
 });
 
+// DELETE - Remove a Lecturer
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const lecturer = await Lecturer.findByPk(id);
+    if (!lecturer) {
+      return res.status(404).json({ error: 'Lecturer not found' });
+    }
+
+    await lecturer.destroy();
+    res.json({ message: 'Lecturer deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting lecturer:', err);
+    res.status(500).json({ error: 'Error deleting lecturer' });
+  }
+});
+
+
+
+
 // Update Lecturer Day Offs
 router.put('/:id/day-offs', async (req, res) => {
   const { id } = req.params;
@@ -50,6 +71,7 @@ router.put('/:id/day-offs', async (req, res) => {
   if (!Array.isArray(day_offs)) {
     return res.status(400).json({ error: 'day_offs must be an array' });
   }
+
 
   const invalidDays = day_offs.filter(day => !validDays.includes(day));
   if (invalidDays.length > 0) {

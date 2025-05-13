@@ -6,8 +6,10 @@ const { sequelize } = require('./models/index');
 const lecturersRoutes = require('./routes/lecturers.routes');
 const roomsRoutes = require('./routes/rooms.routes');
 const lecturesRoutes = require('./routes/lectures.routes');
+const stage=  require('./routes/stage.routes');
 
 const app = express();
+
 
 // Middleware
 app.use(cors());
@@ -17,6 +19,8 @@ app.use(express.json());
 app.use('/api/lecturers', lecturersRoutes);
 app.use('/api/rooms', roomsRoutes);
 app.use('/api/lectures', lecturesRoutes);
+app.use('/api/stages', stage);
+
 
 // Start the server
 const startServer = async () => {

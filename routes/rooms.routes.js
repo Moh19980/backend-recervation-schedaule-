@@ -11,3 +11,13 @@ router.post('/', async (req, res) => {
 });
 
 module.exports = router;
+
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  const room = await Room.destroy({ where: { id } });
+  if (room) {
+    res.status(204).send();
+  } else {
+    res.status(404).json({ error: 'Room not found Please Try again later' });
+  }
+});

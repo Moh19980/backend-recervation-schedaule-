@@ -4,14 +4,15 @@ const { Sequelize, Op } = require('sequelize');
 
 const Room = require('../models/room.model');
 const Lecturer = require('../models/lecturer.model');
+const Stage = require('../models/stage.model'); // Include Stage model
 
 /* ---------- helper: conflict check ---------- */
-async function existsConflict({ room_id, day_of_week, start_time, end_time, stage }) {
+async function existsConflict({ room_id, day_of_week, start_time, end_time, stageId }) {
   const conflictingLecture = await Lecture.findOne({
     where: {
       RoomId: room_id,
       day_of_week,
-      stage,
+      StageId: stageId,
       [Op.or]: [
         { start_time: { [Op.between]: [start_time, end_time] } },
         { end_time: { [Op.between]: [start_time, end_time] } },
@@ -28,15 +29,13 @@ async function existsConflict({ room_id, day_of_week, start_time, end_time, stag
   return conflictingLecture;
 }
 
-// POST create
-// POST create
+/* ---------- POST create Lecture ---------- */
 router.post('/', async (req, res) => {
-  const { course_name, room_id, day_of_week, start_time, end_time, lecturer_ids, stage } = req.body;
+  const { course_name, room_id, day_of_week, start_time, end_time, lecturer_ids, stage_id } = req.body;
 
   try {
-    // Validate stage
-    if (!['stage1', 'stage2', 'stage3', 'stage4'].includes(stage)) {
-      return res.status(400).json({ error: 'Invalid stage value.' });
+    if (!stage_id) {
+      return res.status(400).json({ error: 'Stage is required' });
     }
 
     const conflicts = [];
@@ -63,7 +62,7 @@ router.post('/', async (req, res) => {
       day_of_week, 
       start_time, 
       end_time, 
-      stage 
+      stageId: stage_id,
     });
 
     if (roomConflict) {
@@ -72,33 +71,29 @@ router.post('/', async (req, res) => {
         room: roomConflict.RoomId,
         start_time,
         end_time,
-        reason: `Room is already booked in that slot for stage ${stage}.`,
+        reason: `Room is already booked in that slot.`,
       });
     }
 
-    // If there are any conflicts, send the response with status 409
     if (conflicts.length > 0) {
       return res.status(409).json({ message: 'Conflicts detected.', conflicts });
     }
 
-    // No conflicts, proceed with creating the lecture
     const lecture = await Lecture.create({
       course_name,
       day_of_week,
       start_time,
       end_time,
       RoomId: room_id,
-      stage,
+      StageId: stage_id,  // Use StageId now
     });
 
-    // Attach lecturers
     if (Array.isArray(lecturer_ids) && lecturer_ids.length) {
       await lecture.setLecturers(lecturer_ids);
     }
 
-    // Return the created lecture with its associated data
     const createdLecture = await Lecture.findByPk(lecture.id, {
-      include: [Room, Lecturer],
+      include: [Room, Lecturer, Stage],
     });
 
     res.status(201).json(createdLecture);
@@ -109,18 +104,15 @@ router.post('/', async (req, res) => {
   }
 });
 
-
-
-/* ---------- CRUD ---------- */
-
-// GET all lectures (with lecturers + room, ordered by day and time)
-// GET all lectures with limit, pagination, and date-time filtering based on `createdAt`
+/* ---------- GET all lectures ---------- */
+/* ---------- GET all lectures ---------- */
 router.get('/', async (req, res) => {
-  const { stage, start_date, end_date } = req.query;
+  const { stage_id, start_date, end_date } = req.query;
 
   const queryOptions = {
     include: [
       { model: Room },
+      { model: Stage, attributes: ['id', 'name'] },
       {
         model: Lecturer,
         attributes: ['id', 'name'],
@@ -131,8 +123,8 @@ router.get('/', async (req, res) => {
     where: {},
   };
 
-  if (stage) {
-    queryOptions.where.stage = stage;
+  if (stage_id) {
+    queryOptions.where.StageId = stage_id;
   }
 
   if (start_date && end_date) {
@@ -143,17 +135,17 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    // Fetch schedule data for the current period
+    // Fetch lectures within the current period
     const lectures = await Lecture.findAll(queryOptions);
 
-    // Get all distinct schedule periods
+    // Determine distinct periods
     const distinctPeriods = await Lecture.findAll({
       attributes: [
         [Sequelize.fn('MIN', Sequelize.col('createdAt')), 'start_date'],
         [Sequelize.fn('MAX', Sequelize.col('createdAt')), 'end_date'],
       ],
-      group: ['stage'],
-      where: stage ? { stage } : {},
+      group: ['StageId'],
+      where: stage_id ? { StageId: stage_id } : {},
     });
 
     const periods = distinctPeriods.map(p => ({
@@ -161,13 +153,16 @@ router.get('/', async (req, res) => {
       end: new Date(p.getDataValue('end_date')),
     }));
 
-    // Identify the current period index
-    let currentPeriodIndex = periods.findIndex(period => {
-      return (
-        new Date(start_date).getTime() === period.start.getTime() &&
-        new Date(end_date).getTime() === period.end.getTime()
-      );
-    });
+    let currentPeriodIndex = -1;
+
+    if (start_date && end_date) {
+      currentPeriodIndex = periods.findIndex(period => {
+        return (
+          new Date(start_date).getTime() === period.start.getTime() &&
+          new Date(end_date).getTime() === period.end.getTime()
+        );
+      });
+    }
 
     const hasNext = currentPeriodIndex < periods.length - 1;
     const hasPrevious = currentPeriodIndex > 0;
@@ -183,111 +178,23 @@ router.get('/', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error fetching schedule data:', err);
-    res.status(500).json({ error: 'Error fetching schedule data' });
+    console.error('Error fetching lectures:', err);
+    res.status(500).json({ error: 'Error fetching lectures' });
   }
 });
 
-module.exports = router
 
-// POST create
-
-// DELETE lecture
+/* ---------- DELETE lecture ---------- */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
-  await Lecture.destroy({ where: { id } });
-  res.json({ message: 'Lecture deleted successfully' });
+
+  try {
+    await Lecture.destroy({ where: { id } });
+    res.json({ message: 'Lecture deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting lecture:', err);
+    res.status(500).json({ error: 'Error deleting lecture' });
+  }
 });
-
-// router.post('/generate-random', async (req, res) => {
-//   const { stage } = req.body;
-
-//   try {
-//     const availableRooms = await Room.findAll();
-//     const lecturers = await Lecturer.findAll();
-
-//     const schedule = [];
-//     const conflicts = [];
-
-//     for (const day of ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday']) {
-//       for (const room of availableRooms) {
-//         // Randomly select a lecturer
-//         const randomLecturer = lecturers[Math.floor(Math.random() * lecturers.length)];
-
-//         if (!randomLecturer) {
-//           console.warn(`No lecturers available for ${day}`);
-//           continue;
-//         }
-
-//         const start_time = `${Math.floor(Math.random() * 8) + 8}:00:00`;
-//         const end_time = `${parseInt(start_time.split(':')[0]) + 1}:00:00`;
-
-//         // Ensure `day_offs` is a valid array
-//         const dayOffs = Array.isArray(randomLecturer.day_offs) ? randomLecturer.day_offs : [];
-
-//         // Handle lecturer day-off conflict
-//         if (dayOffs.includes(day)) {
-//           console.warn(`Lecturer ${randomLecturer.name} is off on ${day}`);
-//           conflicts.push({
-//             lecturer: randomLecturer.name,
-//             day,
-//             reason: `Lecturer is off on ${day}`
-//           });
-//           continue;
-//         }
-
-//         // Check for room conflicts
-//         const conflict = await existsConflict({
-//           room_id: room.id,
-//           day_of_week: day,
-//           start_time,
-//           end_time,
-//           stage,
-//         });
-
-//         if (conflict) {
-//           console.warn(`Conflict detected for room ${room.id} on ${day} from ${start_time} to ${end_time}`);
-//           conflicts.push({
-//             room: room.name,
-//             day,
-//             start_time,
-//             end_time,
-//             reason: 'Room is already booked in this slot for the selected stage',
-//           });
-//           continue;
-//         }
-
-//         schedule.push({
-//           course_name: `Course ${Math.random().toString(36).substring(7)}`,
-//           day_of_week: day,
-//           start_time,
-//           end_time,
-//           RoomId: room.id,
-//           stage,
-//           lecturer_ids: [randomLecturer.id],
-//         });
-//       }
-//     }
-
-//     // Notify the frontend team about conflicts
-//     if (conflicts.length > 0) {
-//       res.status(409).json({
-//         message: 'Conflicts detected while generating the schedule.',
-//         conflicts,
-//       });
-//       return;
-//     }
-
-//     // Proceed with creating the schedule if no conflicts
-//     const createdLectures = await Lecture.bulkCreate(schedule, { returning: true });
-//     res.status(201).json(createdLectures);
-
-//   } catch (err) {
-//     console.error('Error generating random schedule:', err);
-//     res.status(500).json({ error: 'Error generating random schedule' });
-//   }
-// });
-
-
 
 module.exports = router;

@@ -1,13 +1,19 @@
-const router = require('express').Router();
-const { Lecture } = require('../models/lecture.model');
-const { Sequelize, Op } = require('sequelize');
+const router = require("express").Router();
+const { Lecture } = require("../models/lecture.model");
+const { Sequelize, Op } = require("sequelize");
 
-const Room = require('../models/room.model');
-const Lecturer = require('../models/lecturer.model');
-const Stage = require('../models/stage.model'); // Include Stage model
+const Room = require("../models/room.model");
+const Lecturer = require("../models/lecturer.model");
+const Stage = require("../models/stage.model"); // Include Stage model
 
 /* ---------- helper: conflict check ---------- */
-async function existsConflict({ room_id, day_of_week, start_time, end_time, stageId }) {
+async function existsConflict({
+  room_id,
+  day_of_week,
+  start_time,
+  end_time,
+  stageId,
+}) {
   const conflictingLecture = await Lecture.findOne({
     where: {
       RoomId: room_id,
@@ -30,12 +36,20 @@ async function existsConflict({ room_id, day_of_week, start_time, end_time, stag
 }
 
 /* ---------- POST create Lecture ---------- */
-router.post('/', async (req, res) => {
-  const { course_name, room_id, day_of_week, start_time, end_time, lecturer_ids, stage_id } = req.body;
+router.post("/", async (req, res) => {
+  const {
+    course_name,
+    room_id,
+    day_of_week,
+    start_time,
+    end_time,
+    lecturer_ids,
+    stage_id,
+  } = req.body;
 
   try {
     if (!stage_id) {
-      return res.status(400).json({ error: 'Stage is required' });
+      return res.status(400).json({ error: "Stage is required" });
     }
 
     const conflicts = [];
@@ -48,7 +62,7 @@ router.post('/', async (req, res) => {
 
       if (dayOffs.includes(day_of_week)) {
         conflicts.push({
-          type: 'Lecturer Day Off',
+          type: "Lecturer Day Off",
           lecturer: lecturer.name,
           day: day_of_week,
           reason: `Lecturer ${lecturer.name} is off on ${day_of_week}`,
@@ -57,17 +71,17 @@ router.post('/', async (req, res) => {
     }
 
     // Check for room conflicts
-    const roomConflict = await existsConflict({ 
-      room_id, 
-      day_of_week, 
-      start_time, 
-      end_time, 
+    const roomConflict = await existsConflict({
+      room_id,
+      day_of_week,
+      start_time,
+      end_time,
       stageId: stage_id,
     });
 
     if (roomConflict) {
       conflicts.push({
-        type: 'Room Conflict',
+        type: "Room Conflict",
         room: roomConflict.RoomId,
         start_time,
         end_time,
@@ -76,7 +90,9 @@ router.post('/', async (req, res) => {
     }
 
     if (conflicts.length > 0) {
-      return res.status(409).json({ message: 'Conflicts detected.', conflicts });
+      return res
+        .status(409)
+        .json({ message: "Conflicts detected.", conflicts });
     }
 
     const lecture = await Lecture.create({
@@ -85,7 +101,7 @@ router.post('/', async (req, res) => {
       start_time,
       end_time,
       RoomId: room_id,
-      StageId: stage_id,  // Use StageId now
+      StageId: stage_id, // Use StageId now
     });
 
     if (Array.isArray(lecturer_ids) && lecturer_ids.length) {
@@ -97,29 +113,28 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json(createdLecture);
-
   } catch (err) {
-    console.error('Error creating lecture:', err);
-    res.status(500).json({ error: 'Error creating lecture' });
+    console.error("Error creating lecture:", err);
+    res.status(500).json({ error: "Error creating lecture" });
   }
 });
 
 /* ---------- GET all lectures ---------- */
 /* ---------- GET all lectures ---------- */
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   const { stage_id, start_date, end_date } = req.query;
 
   const queryOptions = {
     include: [
       { model: Room },
-      { model: Stage, attributes: ['id', 'name'] },
+      { model: Stage, attributes: ["id", "name"] },
       {
         model: Lecturer,
-        attributes: ['id', 'name'],
+        attributes: ["id", "name"],
         through: { attributes: [] },
       },
     ],
-    order: [['createdAt', 'ASC']],
+    order: [["createdAt", "ASC"]],
     where: {},
   };
 
@@ -141,22 +156,22 @@ router.get('/', async (req, res) => {
     // Determine distinct periods
     const distinctPeriods = await Lecture.findAll({
       attributes: [
-        [Sequelize.fn('MIN', Sequelize.col('createdAt')), 'start_date'],
-        [Sequelize.fn('MAX', Sequelize.col('createdAt')), 'end_date'],
+        [Sequelize.fn("MIN", Sequelize.col("createdAt")), "start_date"],
+        [Sequelize.fn("MAX", Sequelize.col("createdAt")), "end_date"],
       ],
-      group: ['StageId'],
+      group: ["StageId"],
       where: stage_id ? { StageId: stage_id } : {},
     });
 
-    const periods = distinctPeriods.map(p => ({
-      start: new Date(p.getDataValue('start_date')),
-      end: new Date(p.getDataValue('end_date')),
+    const periods = distinctPeriods.map((p) => ({
+      start: new Date(p.getDataValue("start_date")),
+      end: new Date(p.getDataValue("end_date")),
     }));
 
     let currentPeriodIndex = -1;
 
     if (start_date && end_date) {
-      currentPeriodIndex = periods.findIndex(period => {
+      currentPeriodIndex = periods.findIndex((period) => {
         return (
           new Date(start_date).getTime() === period.start.getTime() &&
           new Date(end_date).getTime() === period.end.getTime()
@@ -176,24 +191,22 @@ router.get('/', async (req, res) => {
       nextPeriod: hasNext ? periods[currentPeriodIndex + 1] : null,
       prevPeriod: hasPrevious ? periods[currentPeriodIndex - 1] : null,
     });
-
   } catch (err) {
-    console.error('Error fetching lectures:', err);
-    res.status(500).json({ error: 'Error fetching lectures' });
+    console.error("Error fetching lectures:", err);
+    res.status(500).json({ error: "Error fetching lectures" });
   }
 });
 
-
 /* ---------- DELETE lecture ---------- */
-router.delete('/:id', async (req, res) => {
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
     await Lecture.destroy({ where: { id } });
-    res.json({ message: 'Lecture deleted successfully' });
+    res.json({ message: "Lecture deleted successfully" });
   } catch (err) {
-    console.error('Error deleting lecture:', err);
-    res.status(500).json({ error: 'Error deleting lecture' });
+    console.error("Error deleting lecture:", err);
+    res.status(500).json({ error: "Error deleting lecture" });
   }
 });
 

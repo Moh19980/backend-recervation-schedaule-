@@ -2,6 +2,7 @@
 node_modules/
 npm-debug.log*
 yarn-debug.log*
+config.json
 yarn-error.log*
 
 # Logs
@@ -9,7 +10,7 @@ logs/
 *.log
 *.log.*
 
-# Environment variables
+# Environment variablesf
 .env
 
 # Build output

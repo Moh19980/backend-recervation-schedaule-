@@ -1,7 +1,7 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('./index');
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("./index");
 
-const Stage = sequelize.define('Stage', {
+const Stage = sequelize.define("Stage", {
   name: {
     type: DataTypes.STRING,
     allowNull: false,

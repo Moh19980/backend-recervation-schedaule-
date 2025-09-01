@@ -27,6 +27,10 @@ const Lecture = sequelize.define("Lecture", {
     type: DataTypes.TIME,
     allowNull: false,
   },
+  hours_number: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
 });
 
 // M:N (many lecturers can teach a lecture, a lecturer teaches many lectures)

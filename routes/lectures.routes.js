@@ -43,6 +43,7 @@ router.post("/", async (req, res) => {
     day_of_week,
     start_time,
     end_time,
+    hours_number,
     lecturer_ids,
     stage_id,
   } = req.body;
@@ -50,6 +51,10 @@ router.post("/", async (req, res) => {
   try {
     if (!stage_id) {
       return res.status(400).json({ error: "Stage is required" });
+    }
+
+    if (!hours_number || hours_number <= 0) {
+      return res.status(400).json({ error: "Hours number is required and must be greater than 0" });
     }
 
     const conflicts = [];
@@ -100,6 +105,7 @@ router.post("/", async (req, res) => {
       day_of_week,
       start_time,
       end_time,
+      hours_number,
       RoomId: room_id,
       StageId: stage_id, // Use StageId now
     });

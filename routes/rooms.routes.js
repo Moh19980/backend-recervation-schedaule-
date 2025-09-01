@@ -13,11 +13,12 @@ router.get("/", async (_req, res) => {
 
 // POST create
 router.post("/", async (_req, res) => {
+  const { room_name } = _req.body;
   try {
-    if (!_req.body.room_name) {
+    if (!room_name) {
       return res.status(400).json({ error: "room_name is required" });
     }
-    const room = await Room.create({ room_name: _req.body.room_name });
+    const room = await Room.create({ room_name });
     res.status(201).json(room);
   } catch (err) {
     res.status(500).json({ error: "Failed to create room" });

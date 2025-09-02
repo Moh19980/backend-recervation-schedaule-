@@ -45,7 +45,6 @@ router.post("/", async (req, res) => {
     day_of_week,
     start_time,
     end_time,
-    hours_number,
     lecturer_ids,
     stage_id,
     hours_number, // لو موجود بالفرونت
@@ -56,6 +55,14 @@ router.post("/", async (req, res) => {
     if (!stage_id) {
       return res.status(400).json({ error: "Stage is required" });
     }
+
+    // طبّع القيم (خاصة لو إجت "" من الفرونت)
+    const day      = toNull(day_of_week);
+    const start    = toNull(start_time);
+    const end      = toNull(end_time);
+    const roomId   = toNull(room_id);
+    const stageId  = stage_id;
+    const hoursNum = hours_number === "" || hours_number === undefined ? null : Number(hours_number);
 
     const conflicts = [];
 
@@ -100,12 +107,13 @@ router.post("/", async (req, res) => {
 
     // إنشاء المحاضرة — الحقول الاختيارية ممكن تكون null
     const lecture = await Lecture.create({
-      course_name,
-      day_of_week,
-      start_time,
-      end_time,
-      RoomId: room_id,
-      StageId: stage_id, // Use StageId now
+      course_name: course_name ?? null,
+      day_of_week: day,           // قد تكون null
+      start_time : start,         // قد تكون null
+      end_time   : end,           // قد تكون null
+      RoomId     : roomId ?? null, // الغرفة نفسها صارت اختيارية لو ترغب
+      StageId    : stageId,       // إلزامي
+      hours_number: hoursNum,     // اختياري
     });
 
     if (Array.isArray(lecturer_ids) && lecturer_ids.length) {

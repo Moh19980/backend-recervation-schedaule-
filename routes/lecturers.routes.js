@@ -8,7 +8,7 @@ const validDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
 /* ------------------------------------------------------------------ */
 // GET All Lecturers with Cursor-Based Pagination and Full-Text Search
 router.get("/", async (req, res) => {
-  let { limit = 5, cursor, search = "" } = req.query;
+  let { limit = 20, cursor, search = "" } = req.query;
 
   // Ensure limit is a positive integer
   limit = parseInt(limit);
